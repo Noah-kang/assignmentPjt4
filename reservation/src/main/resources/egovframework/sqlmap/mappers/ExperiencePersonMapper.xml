@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.mapper.ExperiencePersonMapper">
+	<!-- 예약Pk로 체험인원들 가져오기 -->
+	<select id="getExperiencePersonsByReservationPk" resultType="egovframework.vo.ExperiencePersonVO">
+    SELECT 
+        ep.EXPERIENCE_PERSON_PK, 
+        ep.RESERVATION_PK, 
+        ep.NAME, 
+        ep.GENDER, 
+        ep.TARGET_TYPE, 
+        cc.CODE_NAME AS targetTypeName, -- 코드 이름 가져오기
+        ep.RESIDENCE, 
+        ep.DETAILED_ADDRESS, 
+        ep.IS_DISABLED, 
+        ep.IS_FOREIGNER
+    FROM 
+        EXPERIENCE_PERSON ep
+    LEFT JOIN 
+        COMMON_CODE cc 
+    ON 
+        ep.TARGET_TYPE = cc.CODE_VALUE AND cc.CODE_GROUP = 'TARGET_TYPE' -- 코드 그룹 필터링
+    WHERE 
+        ep.RESERVATION_PK = #{reservationPk}
+	</select>
+	
+	<!-- 예약내역Pk로 체험인원 삭제 -->
+	<delete id="deleteByReservationPk">
+    DELETE FROM EXPERIENCE_PERSON WHERE RESERVATION_PK = #{reservationPk}
+	</delete>
+
+</mapper>

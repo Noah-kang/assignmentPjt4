@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.mapper.DraftDocumentMapper">
+	
+	<!-- 기안문 PK 생성 -->
+    <select id="getNextDraftPk" resultType="int">
+        SELECT COALESCE(MAX(DRAFT_DOCUMENT_PK), 0) + 1 FROM DRAFT_DOCUMENT
+    </select>
+
+    <!-- 기안문 저장 -->
+    <insert id="insertDraft">
+        INSERT INTO DRAFT_DOCUMENT (
+            DRAFT_DOCUMENT_PK,
+            TITLE,
+            CONTENT,
+            MEMBER_PK,
+            DATE,
+            SCHEDULE_PK,
+            APPROVAL_STATUS
+        ) VALUES (
+            #{draftDocumentPk},
+            #{title},
+            #{content},
+            #{memberPk},
+            #{date},
+            #{schedulePk},
+            'P' -- 초기상태는 결재중
+        )
+    </insert>
+    
+    <!-- shcedule이 기안문을 가졌는지 확인 -->
+    <select id="isDraftExistsBySchedulePk" resultType="boolean">
+    SELECT EXISTS (
+        SELECT 1
+        FROM DRAFT_DOCUMENT
+        WHERE SCHEDULE_PK = #{schedulePk}
+    )
+	</select>
+	
+	<!-- 기안문 조회 schedulePk-->
+    <select id="getDraftBySchedulePk" resultType="egovframework.vo.DraftDocumentVO">
+        SELECT
+            dd.DRAFT_DOCUMENT_PK,
+            dd.TITLE,
+            dd.CONTENT,
+            dd.MEMBER_PK,
+            m.NAME AS memberName,
+            m.DEPARTMENT,
+            cc1.CODE_NAME AS departmentName,
+            m.RANK,
+            cc2.CODE_NAME AS rankName,
+            dd.DATE,
+            dd.SCHEDULE_PK,
+            dd.APPROVAL_STATUS
+        FROM DRAFT_DOCUMENT dd
+        JOIN MEMBER m ON dd.MEMBER_PK = m.MEMBER_PK
+        LEFT JOIN COMMON_CODE cc1 ON m.DEPARTMENT = cc1.CODE_VALUE AND cc1.CODE_GROUP = 'DEPARTMENT'
+        LEFT JOIN COMMON_CODE cc2 ON m.RANK = cc2.CODE_VALUE AND cc2.CODE_GROUP = 'RANK'
+        WHERE dd.SCHEDULE_PK = #{schedulePk}
+    </select>
+    
+    <!-- 기안문 조회 DraftPk -->
+    <select id="getDraftByDraftDocumentPk" resultType="egovframework.vo.DraftDocumentVO">
+        SELECT
+            dd.DRAFT_DOCUMENT_PK,
+            dd.TITLE,
+            dd.CONTENT,
+            dd.MEMBER_PK,
+            m.NAME AS memberName,
+            m.DEPARTMENT,
+            cc1.CODE_NAME AS departmentName,
+            m.RANK,
+            cc2.CODE_NAME AS rankName,
+            dd.DATE,
+            dd.SCHEDULE_PK,
+            dd.APPROVAL_STATUS
+        FROM DRAFT_DOCUMENT dd
+        JOIN MEMBER m ON dd.MEMBER_PK = m.MEMBER_PK
+        LEFT JOIN COMMON_CODE cc1 ON m.DEPARTMENT = cc1.CODE_VALUE AND cc1.CODE_GROUP = 'DEPARTMENT'
+        LEFT JOIN COMMON_CODE cc2 ON m.RANK = cc2.CODE_VALUE AND cc2.CODE_GROUP = 'RANK'
+        WHERE dd.DRAFT_DOCUMENT_PK = #{draftDocumentPk}
+    </select>
+    
+    <!-- 기안함 조회 memberPk -->
+    <select id="selectDraftsForApproval" resultType="egovframework.vo.DraftDocumentVO">
+    SELECT 
+        dd.DRAFT_DOCUMENT_PK,
+        dd.TITLE,
+        dd.DATE,
+        m.NAME AS drafterName,
+        dd.APPROVAL_STATUS,
+        cc.CODE_NAME AS approvalStatusName
+    FROM 
+        DRAFT_DOCUMENT dd
+    JOIN 
+        MEMBER m ON dd.MEMBER_PK = m.MEMBER_PK
+    LEFT JOIN 
+        COMMON_CODE cc ON dd.APPROVAL_STATUS = cc.CODE_VALUE AND cc.CODE_GROUP = 'APPROVAL_STATUS'
+    WHERE 
+        EXISTS (
+            SELECT 1 
+            FROM APPROVAL_LINE al 
+            WHERE al.DRAFT_DOCUMENT_PK = dd.DRAFT_DOCUMENT_PK
+            AND al.MEMBER_PK = #{memberPk}
+            AND al.LINE_STATUS != 'W' -- 대기 상태(W)를 제외
+        )
+    ORDER BY 
+        dd.DATE DESC
+	</select>
+    
+    <!-- 기안문 상태 업데이트 -->
+    <update id="updateApprovalStatus">
+        UPDATE DRAFT_DOCUMENT
+        SET APPROVAL_STATUS = #{approvalStatus}
+        WHERE DRAFT_DOCUMENT_PK = #{draftDocumentPk}
+    </update>
+    
+    <!-- 기안문 목록 가져오기(schedulePk) -->
+    <select id="selectDraftsBySchedulePk" parameterType="int" resultType="egovframework.vo.DraftDocumentVO">
+    SELECT draft_document_pk AS draftDocumentPk,
+           schedule_pk AS schedulePk,
+           approval_status
+    FROM draft_document
+    WHERE schedule_pk = #{schedulePk}
+	</select>
+</mapper>

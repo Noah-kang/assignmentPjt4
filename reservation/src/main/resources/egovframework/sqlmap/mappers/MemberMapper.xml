@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.mapper.MemberMapper">
+	
+	<!-- pk 구하기 -->
+	<select id="selectNextMemberPk" resultType="int">
+		SELECT COALESCE(MAX(member_pk), 0) + 1
+		FROM member
+	</select>
+	
+	<!-- 아이디 존재 여부 -->
+	<select id="isMemberIdExists" parameterType="string" resultType="boolean">
+		SELECT EXISTS (
+			SELECT 1 FROM member
+			WHERE member_id = #{memberId}
+		)
+	</select>
+
+	<!-- 회원 가입 -->
+    <insert id="insertMember" parameterType="egovframework.vo.MemberVO">
+        INSERT INTO member (
+            member_pk,
+            member_id,
+            name,
+            password,
+            member_level,
+            phone_number
+        ) VALUES (
+            #{memberPk},  
+            #{memberId},
+            #{name},
+            #{password},
+            'N',
+            #{phoneNumber}
+        )
+    </insert>
+    
+    <!-- 아이디로 회원 조회 -->
+    <select id="getMemberByMemberId" parameterType="string" resultType="egovframework.vo.MemberVO">
+        SELECT 
+            member_pk  AS memberPk,
+            member_id  AS memberId,
+            password,
+            name,
+            member_level   AS memberLevel
+            
+        FROM member
+        WHERE member_id = #{memberId}
+    </select>
+    
+    <!-- 사용자PK로 정보 가져오기[Pk,이름, 연락처] -->
+	<select id="selectMemberByPk" parameterType="int" resultType="egovframework.vo.MemberVO">
+	    SELECT member_pk AS memberPk, name, phone_number AS phoneNumber
+	    FROM member
+	    WHERE member_pk = #{memberPk}
+	</select>
+
+	<!-- 사용자 이름으로 검색(관리자 예약생성) -->
+	<select id="searchMembersByNameAndLevel" resultType="egovframework.vo.MemberVO">
+	    SELECT MEMBER_PK, NAME, PHONE_NUMBER
+	    FROM MEMBER
+	    WHERE MEMBER_LEVEL = #{level}
+	    <if test="keyword != null and keyword != ''">
+	        AND NAME LIKE CONCAT('%', #{keyword}, '%')
+	    </if>
+	</select>
+	
+	<!-- 특정 Member와 관련된 상세 정보 조회 -->
+	<!-- 기안문 작성용, 사용자 정보 다 가져옴 -->
+    <select id="selectMemberWithDetails" resultType="egovframework.vo.MemberVO">
+        SELECT 
+            m.MEMBER_PK,
+            m.MEMBER_ID,
+            m.NAME,
+            m.RANK,
+            cc1.CODE_NAME AS rankName, -- 직급 이름
+            m.DEPARTMENT,
+            cc2.CODE_NAME AS departmentName, -- 부서 이름
+            m.PHONE_NUMBER
+        FROM MEMBER m
+        LEFT JOIN COMMON_CODE cc1 ON m.RANK = cc1.CODE_VALUE AND cc1.CODE_GROUP = 'RANK'
+        LEFT JOIN COMMON_CODE cc2 ON m.DEPARTMENT = cc2.CODE_VALUE AND cc2.CODE_GROUP = 'DEPARTMENT'
+        WHERE m.MEMBER_PK = #{memberPk}
+    </select>
+    
+    <!-- 결재자 정보 검색 -->
+    <select id="searchApprovers" resultType="egovframework.vo.MemberVO">
+    SELECT 
+        m.MEMBER_PK,
+        m.NAME,
+        m.DEPARTMENT,
+        cc1.CODE_NAME AS departmentName, -- 부서 이름
+        m.RANK,
+        cc2.CODE_NAME AS rankName -- 직급 이름
+    FROM MEMBER m
+    LEFT JOIN COMMON_CODE cc1 ON m.DEPARTMENT = cc1.CODE_VALUE AND cc1.CODE_GROUP = 'DEPARTMENT'
+    LEFT JOIN COMMON_CODE cc2 ON m.RANK = cc2.CODE_VALUE AND cc2.CODE_GROUP = 'RANK'
+    WHERE m.MEMBER_LEVEL = 'A'
+    AND MEMBER_PK != #{loginMemberPk} -- 현재 로그인한 사용자 제외
+      <if test="department != null and department != ''">
+        AND m.DEPARTMENT = #{department}
+      </if>
+      <if test="rank != null and rank != ''">
+        AND m.RANK = #{rank}
+      </if>
+      <if test="name != null and name != ''">
+        AND m.NAME LIKE CONCAT('%', #{name}, '%')
+      </if>
+	</select>
+</mapper>

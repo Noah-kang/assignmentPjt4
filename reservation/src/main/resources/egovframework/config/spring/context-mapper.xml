@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<bean id="sqlSessionFactory"
+		class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<!-- mybatis-config 의 경로 -->
+		<property name="configLocation"
+			value="classpath:egovframework/config/mybatis-config.xml" />
+		<!-- mapper xml의 경로 -->
+		<property name="mapperLocations"
+			value="classpath:egovframework/sqlmap/mappers/*.xml" />
+	</bean>
+
+	<bean id="sqlSessionTemplate"
+		class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg ref="sqlSessionFactory" />
+	</bean>
+
+
+	<!-- mapper.java의 경로 -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="egovframework.mapper" />
+	</bean>
+
+	<!-- 보안 설정 파일 추가 -->
+	<import
+		resource="classpath:/egovframework/config/spring/context-security.xml" />
+</beans>

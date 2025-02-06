@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.mapper.ScheduleMapper">
+	<!-- 특정 프로그램의 특정 월 예약일정 조회 -->
+	<select id="getSchedulesByProgramAndDateRange"
+		resultType="egovframework.vo.ScheduleVO">
+		SELECT
+		s.schedule_pk AS schedulePk,
+		s.program_pk AS programPk,
+		p.name AS programName,
+		s.date AS date,
+		s.time AS time,
+		s.max_capacity AS maxCapacity,
+		s.member_pk AS memberPk,
+		
+		CASE 
+	        WHEN EXISTS (
+	            SELECT 1
+	            FROM draft_document d
+	            WHERE d.schedule_pk = s.schedule_pk
+	            AND d.approval_status IN ('P', 'C')  -- 상태가 'P' 또는 'C'인 경우
+	        ) THEN TRUE
+	        ELSE FALSE
+    	END AS hasDraft  -- 기안문 여부
+        
+		FROM schedule s
+		JOIN program p ON s.program_pk = p.program_pk
+		
+		WHERE s.program_pk = #{programPk}
+		AND s.date BETWEEN #{startDate} AND #{endDate}
+		ORDER BY s.date ASC, s.time ASC
+	</select>
+
+	<!-- 프로그램 이름 조회 -->
+	<select id="selectProgramNameByPk" parameterType="int"
+		resultType="string">
+		SELECT name
+		FROM program
+		WHERE program_pk = #{programPk}
+	</select>
+
+	<!-- 예약 일정 저장 -->
+	<insert id="insertSchedule"
+		parameterType="egovframework.vo.ScheduleVO">
+		INSERT INTO schedule (schedule_pk, program_pk, date, time, max_capacity,
+		member_pk)
+		VALUES (#{schedulePk}, #{programPk}, #{date}, #{time}, #{maxCapacity},
+		#{memberPk})
+	</insert>
+
+	<!-- 예약 일정 pk 채번 -->
+	<select id="selectNextSchedulePk" resultType="int">
+		SELECT COALESCE(MAX(schedule_pk), 0) + 1
+		FROM schedule
+	</select>
+	
+    <!-- 특정 Schedule 정보 가져오기 -->
+    <select id="getScheduleByPk" resultType="egovframework.vo.ScheduleVO">
+        SELECT * 
+        FROM SCHEDULE
+        WHERE SCHEDULE_PK = #{schedulePk}
+    </select>
+    
+    <!-- schedule 관리에서 필요한 데이터 -->
+    <select id="getScheduleDetails" parameterType="int" resultMap="scheduleDetailResultMap">
+    SELECT 
+    s.SCHEDULE_PK, 
+    s.PROGRAM_PK, 
+    p.NAME AS programName, 
+    s.DATE, 
+    s.TIME, 
+    s.MAX_CAPACITY,
+    COUNT(DISTINCT r.RESERVATION_PK) AS reservationCount,
+    COALESCE(SUM(CASE WHEN ep.EXPERIENCE_PERSON_PK IS NOT NULL THEN 1 ELSE 0 END), 0) AS experiencePersonCount
+	FROM 
+	    SCHEDULE s
+	LEFT JOIN PROGRAM p ON s.PROGRAM_PK = p.PROGRAM_PK
+	LEFT JOIN RESERVATION r ON s.SCHEDULE_PK = r.SCHEDULE_PK
+	LEFT JOIN EXPERIENCE_PERSON ep ON r.RESERVATION_PK = ep.RESERVATION_PK
+	WHERE 
+	    s.SCHEDULE_PK = #{schedulePk} -- 특정 schedulePk에 대한 데이터 조회
+	GROUP BY 
+	    s.SCHEDULE_PK, s.PROGRAM_PK, p.NAME, s.DATE, s.TIME, s.MAX_CAPACITY;
+	</select>
+	
+	<resultMap id="scheduleDetailResultMap" type="egovframework.vo.ScheduleVO">
+	    <id property="schedulePk" column="SCHEDULE_PK" />
+	    <result property="programPk" column="PROGRAM_PK" />
+	    <result property="programName" column="programName" />
+	    <result property="date" column="DATE" />
+	    <result property="time" column="TIME" />
+	    <result property="maxCapacity" column="MAX_CAPACITY" />
+	    <result property="reservationCount" column="reservationCount" />
+	    <result property="experiencePersonCount" column="experiencePersonCount" />
+	</resultMap>
+    
+    <!-- 예약일정 제한인원 수정 -->
+    <update id="updateMaxCapacity">
+    UPDATE SCHEDULE
+    SET MAX_CAPACITY = #{maxCapacity}
+    WHERE SCHEDULE_PK = #{schedulePk}
+	</update>
+    
+    <!-- 같은 날짜와 시간에 예약 존재 여부 확인 -->
+	<select id="existsSchedule" resultType="boolean">
+	    SELECT COUNT(*)
+	    FROM SCHEDULE
+	    WHERE PROGRAM_PK = #{programPk}
+	      AND DATE = #{date}
+	      AND TIME = #{time}
+	</select>
+
+</mapper>

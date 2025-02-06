@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.mapper.DraftFileMapper">
+	
+	<!-- 첨부파일 PK 생성 -->
+    <select id="getNextFilePk" resultType="int">
+        SELECT COALESCE(MAX(FILE_PK), 0) + 1 FROM DRAFT_FILE
+    </select>
+
+    <!-- 첨부파일 저장 -->
+    <insert id="insertDraftFile">
+        INSERT INTO DRAFT_FILE (
+            FILE_PK,
+            DRAFT_DOCUMENT_PK,
+            FILE_NAME,
+            FILE_PATH,
+            FILE_SIZE,
+            UUID
+        ) VALUES (
+            #{filePk},
+            #{draftDocumentPk},
+            #{fileName},
+            #{filePath},
+            #{fileSize},
+            #{uuid}
+        )
+    </insert>
+    
+    <!-- 첨부파일 조회 -->
+    <select id="getAttachedFilesByDraftPk" resultType="egovframework.vo.DraftFileVO">
+        SELECT
+            FILE_PK,
+            DRAFT_DOCUMENT_PK,
+            FILE_NAME,
+            FILE_PATH,
+            FILE_SIZE,
+            UUID
+        FROM DRAFT_FILE
+        WHERE DRAFT_DOCUMENT_PK = #{draftDocumentPk}
+    </select>
+
+    <!-- 첨부파일 단건 조회 (다운로드용)-->
+    <select id="getFileByPk" resultType="egovframework.vo.DraftFileVO">
+        SELECT
+            FILE_PK,
+            DRAFT_DOCUMENT_PK,
+            FILE_NAME,
+            FILE_PATH,
+            FILE_SIZE,
+            UUID
+        FROM DRAFT_FILE
+        WHERE FILE_PK = #{filePk}
+    </select>
+</mapper>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+          http://www.springframework.org/schema/beans 
+          http://www.springframework.org/schema/beans/spring-beans.xsd
+          http://www.springframework.org/schema/context
+          http://www.springframework.org/schema/context/spring-context.xsd
+          http://www.springframework.org/schema/task
+          http://www.springframework.org/schema/task/spring-task.xsd">
+
+    <!-- 스케줄러 기능 활성화 -->
+    <task:annotation-driven />
+
+    <!-- @Component, @Service, @Repository 등이 모여 있는 base-package 스캔 -->
+    <!-- (이미 다른 context-*.xml에서 스캔하고 있으면 생략 가능) -->    
+    <context:component-scan base-package="egovframework" />
+
+</beans>

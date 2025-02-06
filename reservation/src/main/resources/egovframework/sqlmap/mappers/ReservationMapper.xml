@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.mapper.ReservationMapper">
+	<!-- 예약 pk 채번 -->
+	<select id="selectNextReservationPk" resultType="int">
+		SELECT COALESCE(MAX(reservation_pk), 0) + 1
+		FROM reservation
+	</select>
+	
+	<!-- 체험인원 pk 채번 -->
+	<select id="selectNextExperiencePersonPk" resultType="int">
+		SELECT COALESCE(MAX(experience_person_pk), 0) + 1
+		FROM experience_person
+	</select>
+	
+	<!-- 예약 저장 -->
+    <insert id="insertReservation" parameterType="egovframework.vo.ReservationVO">
+        INSERT INTO reservation (reservation_pk, schedule_pk, reservation_type, program_pk, member_pk)
+        VALUES (#{reservationPk}, #{schedulePk}, #{reservationType}, #{programPk}, #{memberPk})
+    </insert>
+
+    <!-- 체험 인원 저장 -->
+    <insert id="insertExperiencePerson" parameterType="egovframework.vo.ExperiencePersonVO">
+        INSERT INTO experience_person (experience_person_pk, reservation_pk, name, gender, target_type, residence, detailed_address, is_disabled, is_foreigner, program_pk)
+        VALUES (#{experiencePersonPk}, #{reservationPk}, #{name}, #{gender}, #{targetType}, #{residence}, #{detailedAddress}, #{isDisabled}, #{isForeigner}, #{programPk})
+    </insert>
+
+    <!-- 예약 일정 조회 -->
+    <select id="selectSchedule" parameterType="int" resultType="egovframework.vo.ScheduleVO">
+        SELECT * FROM schedule WHERE schedule_pk = #{schedulePk}
+    </select>
+    
+    <!-- 해당 shcedule이 가진 체험인원 수 반환 -->
+    <select id="getExperiencePersonCountBySchedulePk" parameterType="int" resultType="int">
+    SELECT COUNT(*)
+		FROM EXPERIENCE_PERSON
+		WHERE RESERVATION_PK IN (
+		    SELECT RESERVATION_PK
+		    FROM RESERVATION
+		    WHERE SCHEDULE_PK = #{schedulePk}
+		);
+	</select>
+    
+    <!-- 특정 Schedule의 Reservation 리스트 가져오기 -->
+    <select id="getReservationsBySchedulePk" resultType="egovframework.vo.ReservationVO">
+        SELECT *
+        FROM RESERVATION
+        WHERE SCHEDULE_PK = #{schedulePk}
+    </select>
+    
+    <!-- 예약일정 관리에서 보여줄 Reservation 정보 -->
+    <select id="getReservationsWithDetailsBySchedulePk" resultType="egovframework.vo.ReservationVO">
+	SELECT 
+	    ROW_NUMBER() OVER (ORDER BY r.RESERVATION_PK) AS rowNum, -- 가상의 순서 부여
+	    r.RESERVATION_PK,
+	    r.SCHEDULE_PK,
+	    cc.code_name AS reservationTypeName, -- 예약 타입 이름 (개인, 단체)
+	    r.MEMBER_PK,
+	    m.NAME AS memberName, -- 회원 이름
+	    COUNT(ep.EXPERIENCE_PERSON_PK) AS experiencePersonCount -- 체험 인원 수
+	FROM 
+	    RESERVATION r
+	LEFT JOIN MEMBER m ON r.MEMBER_PK = m.MEMBER_PK
+	LEFT JOIN EXPERIENCE_PERSON ep ON r.RESERVATION_PK = ep.RESERVATION_PK
+	LEFT JOIN COMMON_CODE cc ON r.RESERVATION_TYPE = cc.CODE_VALUE AND cc.CODE_GROUP = 'RESERVATION_TYPE' -- 예약 타입 변환
+	WHERE 
+	    r.SCHEDULE_PK = #{schedulePk}
+	GROUP BY 
+	    r.RESERVATION_PK, r.SCHEDULE_PK, cc.code_name, r.MEMBER_PK, m.NAME
+	ORDER BY 
+	    r.RESERVATION_PK
+	</select>
+	
+	<!-- 예약내역Pk로 내역 삭제 -->
+	<delete id="deleteByPk">
+    DELETE FROM RESERVATION WHERE RESERVATION_PK = #{reservationPk}
+	</delete>
+	
+	<!-- 예약내역 검색 -->
+	<select id="searchReservations" resultType="egovframework.vo.ReservationVO">
+    SELECT 
+        r.RESERVATION_PK, 
+        r.SCHEDULE_PK,
+        m.NAME AS memberName, 
+        m.PHONE_NUMBER AS phoneNumber, 
+        s.DATE, 
+        s.TIME, 
+        p.NAME AS programName, 
+        r.RESERVATION_TYPE,
+        cc.code_name AS reservationTypeName -- 예약 타입 이름 (개인, 단체)
+    FROM RESERVATION r
+    LEFT JOIN MEMBER m ON r.MEMBER_PK = m.MEMBER_PK
+    LEFT JOIN SCHEDULE s ON r.SCHEDULE_PK = s.SCHEDULE_PK
+    LEFT JOIN PROGRAM p ON s.PROGRAM_PK = p.PROGRAM_PK
+    LEFT JOIN COMMON_CODE cc ON r.RESERVATION_TYPE = cc.CODE_VALUE AND cc.CODE_GROUP = 'RESERVATION_TYPE' -- 예약 타입 변환
+    WHERE 1 = 1
+    <if test="name != null and name != ''">
+        AND m.NAME LIKE CONCAT('%', #{name}, '%')
+    </if>
+    <if test="phoneNumber != null and phoneNumber != ''">
+        AND m.PHONE_NUMBER LIKE CONCAT('%', #{phoneNumber}, '%')
+    </if>
+    <if test="date != null">
+        AND s.DATE = #{date}
+    </if>
+    <if test="programPk != null">
+        AND p.PROGRAM_PK = #{programPk}
+    </if>
+    ORDER BY s.DATE, s.TIME
+	</select>
+	
+	<!-- 사용자Pk로 예약내역 가져오기 -->
+	<select id="getReservationsByMemberPk" resultType="egovframework.vo.ReservationVO">
+    SELECT 
+        r.RESERVATION_PK,
+        r.SCHEDULE_PK,
+        s.PROGRAM_PK,
+        p.NAME AS programName,
+        s.DATE,
+        s.TIME,
+        COUNT(ep.EXPERIENCE_PERSON_PK) AS experiencePersonCount
+    FROM RESERVATION r
+    JOIN SCHEDULE s ON r.SCHEDULE_PK = s.SCHEDULE_PK
+    JOIN PROGRAM p ON s.PROGRAM_PK = p.PROGRAM_PK
+    LEFT JOIN EXPERIENCE_PERSON ep ON r.RESERVATION_PK = ep.RESERVATION_PK
+    WHERE r.MEMBER_PK = #{memberPk}
+    GROUP BY r.RESERVATION_PK, s.SCHEDULE_PK, p.NAME, s.DATE, s.TIME
+    ORDER BY s.DATE DESC
+</select>
+</mapper>

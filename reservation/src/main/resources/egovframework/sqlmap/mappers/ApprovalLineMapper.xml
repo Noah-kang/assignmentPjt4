@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.mapper.ApprovalLineMapper">
+	
+	<!-- 결재라인 PK 생성 -->
+    <select id="getNextApprovalLinePk" resultType="int">
+        SELECT COALESCE(MAX(APPROVAL_LINE_PK), 0) + 1 FROM APPROVAL_LINE
+    </select>
+
+    <!-- 결재라인 저장 -->
+    <insert id="insertApprovalLine">
+        INSERT INTO APPROVAL_LINE (
+            APPROVAL_LINE_PK,
+            DRAFT_DOCUMENT_PK,
+            MEMBER_PK,
+            LINE_ORDER,
+            LINE_STATUS
+        ) VALUES (
+            #{approvalLinePk},
+            #{draftDocumentPk},
+            #{memberPk},
+            #{lineOrder},
+            <choose>
+	            <when test="lineOrder == 1">
+	                'I' <!-- 결재중 -->
+	            </when>
+	            <otherwise>
+	                'W' <!-- 결재대기 -->
+	            </otherwise>
+        	</choose>
+        )
+    </insert>
+    
+    <!-- 결재라인 조회 -->
+    <select id="getApprovalLinesByDraftPk" resultType="egovframework.vo.ApprovalLineVO">
+        SELECT 
+	        a.LINE_ORDER,
+	        a.MEMBER_PK,
+	        m.NAME AS memberName,
+	        cc1.CODE_NAME AS rankName,
+	        a.LINE_STATUS,
+	        cc2.CODE_NAME AS lineStatusName, -- 상태 이름
+	        a.APPROVED_AT
+	    FROM 
+	        APPROVAL_LINE a
+	    JOIN 
+	        MEMBER m ON a.MEMBER_PK = m.MEMBER_PK
+	    LEFT JOIN 
+	        COMMON_CODE cc1 ON m.RANK = cc1.CODE_VALUE AND cc1.CODE_GROUP = 'RANK'
+	    LEFT JOIN 
+	        COMMON_CODE cc2 ON a.LINE_STATUS = cc2.CODE_VALUE AND cc2.CODE_GROUP = 'LINE_STATUS'
+	    WHERE 
+	        a.DRAFT_DOCUMENT_PK = #{draftDocumentPk}
+	    ORDER BY 
+	        a.LINE_ORDER ASC
+    </select>
+    
+    <!-- 현재 결재라인 상태 업데이트 -->
+    <update id="updateLineStatus">
+    UPDATE APPROVAL_LINE
+    SET LINE_STATUS = #{lineStatus},
+        APPROVED_AT = CASE 
+            WHEN #{lineStatus} IN ('A', 'R') THEN CURRENT_DATE
+            ELSE APPROVED_AT
+        END
+    WHERE DRAFT_DOCUMENT_PK = #{draftDocumentPk}
+    AND MEMBER_PK = #{memberPk}
+	</update>
+
+    <!-- 다음 결재라인 가져오기 -->
+    <select id="getNextApprovalLine" resultType="egovframework.vo.ApprovalLineVO">
+        SELECT *
+        FROM APPROVAL_LINE
+        WHERE DRAFT_DOCUMENT_PK = #{draftDocumentPk}
+        AND LINE_STATUS = 'W'
+        ORDER BY LINE_ORDER ASC
+        LIMIT 1
+    </select>
+</mapper>
